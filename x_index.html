@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>WATOR Simulation, V.5, Versuche. 2</title>
+
+    <style>
+        /* Füge hier den Inhalt der CSS-Dateien ein */
+        /* Beispiel: */
+        /* body { font-family: Arial, sans-serif; } */
+    </style>
+
+</head>
+
+<body class="no-select">
+    <script>
+        // Füge hier den Inhalt der JavaScript-Dateien ein
+        // Beispiel:
+        // class classSimulation_ui {
+        //     ...existing code...
+        // }
+
+        // Create SimulationEinstellungen first
+        window.SimulationEinstellungen = new classSimulation_ui();
+        // Then create scene which will use SimulationEinstellungen
+        window.meine_szene = new classSzene();
+        // Create statistics instance
+        window.STATISTIK = new classStatistik();
+        
+        // Auto-start simulation with default settings
+        window.addEventListener('load', () => {
+            const config = {
+                dimensions: SimulationEinstellungen.dimensions,
+                neighbors: SimulationEinstellungen.neighbors,
+                world_edge: SimulationEinstellungen.world_edge,
+                fish: SimulationEinstellungen.fish,
+                shark: SimulationEinstellungen.shark
+            };
+            
+            window.SIMULATION = new classSimulation(config);
+            
+            // Create Player - animation will start automatically
+            window.PLAYER = new classPlayer();
+            
+            // Set simulation to pause mode after initialization
+            window.PLAYER.isPlaying = false;
+            const playPauseButton = document.getElementById('playPauseButton');
+            if (playPauseButton) {
+                playPauseButton.textContent = '▶️ Play';
+            }
+            const stepButton = document.getElementById('stepButton');
+            if (stepButton) {
+                stepButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

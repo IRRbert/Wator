@@ -1,271 +1,553 @@
-// Klasse Simulation UI Version 0.0003
 class classSimulation_ui {
     constructor() {
-        this.dimensionWindow    = null;
-        this.WINDOW_MARGIN      = 50; // Margin for the window from the screen edges
-        this.heightBuffer       = 60; // Buffer to account for additional height elements
-        this.widthBuffer        = 24; // Buffer to account for additional width elements
-        this.liste_der_auto_hide_Winboxen = []; // Initialize the list to hold WinBox instances
-        this.winboxVisible      = true; // Track the visibility state of the WinBoxes
-        this.WatorBox           = this.createWatorWindow(); // Create the main Wator window and store the instance in this.WatorBox
+        // Initialize the dimensions with smaller default values
+        this.dimensions = {
+            x: 20,
+            y: 20,
+            z: 20
+        };
 
-        // Add resize event listener to reposition the window when the screen size changes
+        // Initialize the standard values
+        this.world_edge = 'keine';
+        this.neighbors = {
+            sides: true,
+            edges: true,
+            corners: true
+        };
+
+        // Initialize values for fish and sharks
+        this.fish = {
+            count: 100,
+            birth: 10
+        };
+        
+        this.shark = {
+            count: 10,
+            birth: 50,
+            starve: 70
+        };
+
+        // Load default settings if they exist
+        this.loadDefaultSettings();
+
+        // Create WinBox immediately and keep it visible
+        this.createWatorBox();
+
+        // Register to menu
+        MENU.register_to_MENU({
+            MENU_Name: 'Wator',
+            MENU_Klick: this.MENU_Klick.bind(this),
+        });
+
         window.addEventListener('resize', () => {
-            this.centerWatorWindow();
+            this.centerWatorBox();
         });
     }
 
-    // -----------------------------UI Fenster ----------------
-    createWatorWindow() {
+    loadDefaultSettings() {
+        fetch('simulation/default.json')
+            .then(response => response.json())
+            .then(settings => {
+                // Apply settings
+                if (settings.dimensions) {
+                    this.dimensions = settings.dimensions;
+                }
+                if (settings.world_edge) {
+                    this.world_edge = settings.world_edge;
+                }
+                if (settings.neighbors) {
+                    this.neighbors = settings.neighbors;
+                }
+                if (settings.fish) {
+                    this.fish = settings.fish;
+                }
+                if (settings.shark) {
+                    this.shark = settings.shark;
+                }
+
+                // Update UI if WatorBox exists
+                if (this.WatorBox) {
+                    this.updateSettingsUI();
+                }
+
+                // Reposition the camera
+                this.repositionCamera();
+
+                // Reinitialize the simulation with the new settings
+                this.initSimulation();
+            })
+            .catch(error => {
+                console.warn('Could not load default settings:', error);
+            });
+    }
+
+    createWatorBox() {
         let htmlContent = `<form>`;
-        this.id = erzeuge_ID(); // Generate a unique ID for the world
         htmlContent += `
-                <fieldset>
-                  <legend> ${this.id} </legend>`;
+                    <fieldset>
+                      <legend>Dimensionen: </legend>
+                      <button type="button" id="dimensionButton">
+                           X:${this.dimensions.x}, Y:${this.dimensions.y}, Z:${this.dimensions.z}
+                      </button>            <br>
+                    </fieldset>`;
 
-        // -----------------------------Dimension ----------------
-        this.x_dim = 100; this.y_dim = 100; this.z_dim = 100; // Initial dimensions for the world
         htmlContent += `
-            <fieldset>
-                <legend>Dimensionen: </legend>
-                <button type="button" id="dimensionButton">
-                     X:${this.x_dim}, Y:${this.y_dim}, Z:${this.z_dim}
-                </button>            <br>
-            </fieldset>
-            `;
+                    <fieldset>
+                          <legend>Der Grenzen der Welt sind: </legend>
+                        <select id="world_edge">
+                            <option value="keine" ${this.world_edge === 'keine' ? 'selected' : ''}>keine</option>
+                            <option value="Wand" ${this.world_edge === 'Wand' ? 'selected' : ''}>Wände</option>
+                            <option value="verbunden" ${this.world_edge === 'verbunden' ? 'selected' : ''}>verbunden</option>
+                        </select>
+                    </fieldset>
+                    `;
 
-        // ---------------------------- Grenzen ----------------
+        htmlContent += `<fieldset><legend>Was sind Nachbarn: </legend>
+                     <label><input type="checkbox" id="neighbor-sides" value="sides" ${this.neighbors.sides ? 'checked' : ''} onchange="if (!this.checked && !document.getElementById('neighbor-edges').checked && !document.getElementById('neighbor-corners').checked) this.checked = true;">Seiten</label>            
+                     <label><input type="checkbox" id="neighbor-edges" value="edges" ${this.neighbors.edges ? 'checked' : ''} onchange="if (!this.checked && !document.getElementById('neighbor-sides').checked && !document.getElementById('neighbor-corners').checked) this.checked = true;">Kanten</label>
+                     <label><input type="checkbox" id="neighbor-corners" value="corners" ${this.neighbors.corners ? 'checked' : ''} onchange="if (!this.checked && !document.getElementById('neighbor-sides').checked && !document.getElementById('neighbor-edges').checked) this.checked = true;">Ecken</label>
+                   </fieldset>`;
+
+        htmlContent += `<fieldset><legend>Wesen: 
+                  </legend>`;
+
+        htmlContent += `<fieldset><legend>Fische: 
+                    <input type="number" id="fish_count" name="fish_count" min="0" max="1000" value="${this.fish.count}"> 
+                    </legend>`;
+
         htmlContent += `
-            <fieldset>
-                  <legend>Der Grenzen der Welt sind: </legend>
-                <select id="world_edge">
-                    <option value="keine">keine</option>
-                    <option value="Wand">Wände</option>
-                    <option value="verbunden">verbunden</option>
-                </select>
-            </fieldset>
-            `;
-
-        // ----------------------------- Nachbarn ----------------  
-        htmlContent += `<fieldset><legend> Was sind Nachbarn: </legend>
-             <label><input type="checkbox" id="neighbor-sides" value="sides" checked onchange="if (!this.checked && !document.getElementById('neighbor-edges').checked && !document.getElementById('neighbor-corners').checked) this.checked = true;">Seiten</label>            
-             <label><input type="checkbox" id="neighbor-edges" value="edges" checked onchange="if (!this.checked && !document.getElementById('neighbor-sides').checked && !document.getElementById('neighbor-corners').checked) this.checked = true;">Kanten</label>
-             <label><input type="checkbox" id="neighbor-corners" value="corners" checked onchange="if (!this.checked && !document.getElementById('neighbor-sides').checked && !document.getElementById('neighbor-edges').checked) this.checked = true;">Ecken</label>
-           </fieldset>
-        </fieldset>
-            `;
-
-        // ----------------------------------------- WESEN -------------- 
-        htmlContent += `<fieldset><legend> Wesen: 
-          </legend>`;
-
-        htmlContent += `<fieldset><legend> Fische: 
-            <input type="number" id="fish_count" name="fish_count" min="0" max="1000" value="100"> 
-            </legend>`;
-
-        // diese Daten sollen später von den "Wesen"-Fish-Objekten geliefert werden, da sie dann variieren können.
-        htmlContent += `
-          Zeit bis Nachwuchs: <input type="number" id="fish_birth" name="fish_birth" min="0" max="1000" value="10">   `;
+                  Zeit bis Nachwuchs: <input type="number" id="fish_birth" name="fish_birth" min="0" max="1000" value="${this.fish.birth}">   `;
 
         htmlContent += `</fieldset>`;
 
-        htmlContent += `<fieldset><legend> Haie: 
-            <input type="number" id="shark_count" name="shark_count" min="0" max="1000" value="100"> 
-            </legend>`;
+        htmlContent += `<fieldset><legend>Haie: 
+                    <input type="number" id="shark_count" name="shark_count" min="0" max="1000" value="${this.shark.count}"> 
+                    </legend>`;
 
-        // diese Daten sollen später von den "Wesen"-Hai-Objekten geliefert werden, da sie dann variieren können.
         htmlContent += `
-          Zeit bis Nachwuchs: <input type="number" id="shark_birth" name="shark_birth" min="0" max="1000" value="50">   
-          <br>
-          Zeit bis Verhungert: <input type="number" id="shark_starve" name="shark_starve" min="0" max="1000" value="110"> 
-          `;
+                  Zeit bis Nachwuchs: <input type="number" id="shark_birth" name="shark_birth" min="0" max="1000" value="${this.shark.birth}">   
+                  <br>
+                  Zeit bis Verhungert: <input type="number" id="shark_starve" name="shark_starve" min="0" max="1000" value="${this.shark.starve}"> 
+                  `;
 
         htmlContent += `</fieldset>`;
         htmlContent += `</fieldset>`;
 
-        // ------------------------ Start/Restart Button ----------------------
         htmlContent += `<div style="text-align: center;"><button type="button" id="startRestartButton">Start / Restart</button></div>`;
+
+        htmlContent += `<fieldset>
+            <legend>Einstellungen</legend>
+            <div style="text-align: center;">
+                <button type="button" id="saveWatorSettingsBtn">Speichern</button>
+                <button type="button" id="loadWatorSettingsBtn">Laden</button>
+            </div>
+        </fieldset>`;
 
         htmlContent += `</form>`;
 
-        // Measure the content size to determine window dimensions
         const { width: contentWidth, height: contentHeight } = measureContentSize(htmlContent);
-        const windowWidth = contentWidth + this.widthBuffer;
-        const windowHeight = contentHeight + this.heightBuffer;
+        const windowWidth = contentWidth + 24;
+        const windowHeight = contentHeight + 60;
 
-        // Erstelle das Hauptfenster der WinBox zentriert 
-        const WatorBox = new WinBox({
-            title: "Simulation",
+        this.WatorBox = new WinBox({
+            title: 'Wator',
             width: windowWidth + 'px',
             height: windowHeight + 'px',
             html: htmlContent,
-            class: ["no-max", "no-full", "no-close"],
-            x: "center",
-            y: "center",
-            min: true, // Fenster wird minimiert gestartet
+            class: ['no-max', 'no-full', "no-close"],
+            x: '0',
+            y: '0',
             oncreate: () => {
-                // Add event listener for the dimension button
+                setTimeout(() => {
+                    if (this.WatorBox && this.WatorBox.dom) {
+                        const titleBar = this.WatorBox.dom.querySelector('.wb-title');
+                        if (titleBar) {
+                            const closeBtn = document.createElement('span');
+                            closeBtn.innerHTML = '×';
+                            closeBtn.className = 'custom-close-btn';
+                            closeBtn.style.cssText = 'position: absolute; right: 10px; top: 0; cursor: pointer; font-size: 20px;';
+                            closeBtn.addEventListener('click', () => {
+                                this.WatorBox.hide();
+                            });
+                            titleBar.appendChild(closeBtn);
+                        }
+                    }
+                }, 100);
+                
                 const dimensionButton = document.getElementById('dimensionButton');
                 if (dimensionButton) {
                     dimensionButton.addEventListener('click', this.openDimensionWindow.bind(this));
                 }
-            },
-            onclose: () => {
-                // Entferne die WinBox aus der Liste, wenn sie geschlossen wird
-                this.liste_der_auto_hide_Winboxen = this.liste_der_auto_hide_Winboxen.filter((wb) => wb !== WatorBox);
+
+                document.getElementById('neighbor-sides').addEventListener('change', (e) => {
+                    this.neighbors.sides = e.target.checked;
+                });
+                document.getElementById('neighbor-edges').addEventListener('change', (e) => {
+                    this.neighbors.edges = e.target.checked;
+                });
+                document.getElementById('neighbor-corners').addEventListener('change', (e) => {
+                    this.neighbors.corners = e.target.checked;
+                });
+
+                document.getElementById('world_edge').addEventListener('change', (e) => {
+                    this.world_edge = e.target.value;
+                });
+
+                document.getElementById('fish_count').addEventListener('change', (e) => {
+                    this.fish.count = parseInt(e.target.value);
+                });
+                document.getElementById('fish_birth').addEventListener('change', (e) => {
+                    this.fish.birth = parseInt(e.target.value);
+                });
+
+                document.getElementById('shark_count').addEventListener('change', (e) => {
+                    this.shark.count = parseInt(e.target.value);
+                });
+                document.getElementById('shark_birth').addEventListener('change', (e) => {
+                    this.shark.birth = parseInt(e.target.value);
+                });
+                document.getElementById('shark_starve').addEventListener('change', (e) => {
+                    this.shark.starve = parseInt(e.target.value);
+                });
+
+                document.getElementById('startRestartButton').addEventListener('click', () => {
+                    const config = {
+                        dimensions: this.dimensions,
+                        neighbors: this.neighbors,
+                        world_edge: this.world_edge,
+                        fish: this.fish,
+                        shark: this.shark
+                    };
+
+                    if (!window.SIMULATION) {
+                        window.SIMULATION = new classSimulation(config);
+                        meine_szene.registerUpdateObject(window.SIMULATION);
+                    } else {
+                        window.SIMULATION.removeFromScene();
+                        window.SIMULATION = new classSimulation(config);
+                        meine_szene.registerUpdateObject(window.SIMULATION);
+                    }
+                });
+
+                // Settings buttons event listeners
+                document.getElementById('saveWatorSettingsBtn').addEventListener('click', () => this.saveSettings());
+                document.getElementById('loadWatorSettingsBtn').addEventListener('click', () => this.loadSettings());
             }
         });
 
-        // Füge das Fenster der Liste der auto-hide Winboxen hinzu
-        this.liste_der_auto_hide_Winboxen.push(WatorBox);
-
-        return WatorBox; // Gib das WinBox-Objekt zurück, damit es im Konstruktor gespeichert werden kann
-
+        return this.WatorBox;
     }
 
-    // ----------------------------- Center Wator Window ----------------
-    centerWatorWindow() {
-        if (this.WatorBox && !this.WatorBox.min) {
-            this.WatorBox.move("center", "center");
+    saveSettings() {
+        const settings = {
+            dimensions: this.dimensions,
+            world_edge: this.world_edge,
+            neighbors: this.neighbors,
+            fish: this.fish,
+            shark: this.shark
+        };
+
+        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'wator-settings.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    loadSettings() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const settings = JSON.parse(e.target.result);
+                        this.applySettings(settings);
+                        this.updateSettingsUI();
+                        
+                        // Reinitialize the simulation with the new settings
+                        this.initSimulation();
+                    } catch (error) {
+                        console.error('Error parsing settings file:', error);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
+
+    applySettings(settings) {
+        if (settings.dimensions) {
+            this.dimensions = settings.dimensions;
+        }
+        if (settings.world_edge) {
+            this.world_edge = settings.world_edge;
+        }
+        if (settings.neighbors) {
+            this.neighbors = settings.neighbors;
+        }
+        if (settings.fish) {
+            this.fish = settings.fish;
+        }
+        if (settings.shark) {
+            this.shark = settings.shark;
+        }
+
+        // Automatically restart the simulation with the new settings
+        this.initSimulation();
+
+        // Reposition the camera
+        this.repositionCamera();
+    }
+
+    repositionCamera() {
+        if (meine_szene && meine_szene.camera) {
+            const { x, y, z } = this.dimensions;
+            // Calculate camera position based on dimensions
+            const cameraDistance = Math.max(x, y, z) * 1.3;
+            meine_szene.camera.position.set(cameraDistance, cameraDistance, cameraDistance / 4);
+            
+            // Set lookAt to center of the simulation space
+            const centerX = x / 2;
+            const centerY = y / 2;
+            const centerZ = z / 2;
+            meine_szene.camera.lookAt(centerX, centerY, centerZ);
         }
     }
 
+    updateSettingsUI() {
+        // Update dimension button
+        const dimensionButton = document.getElementById('dimensionButton');
+        if (dimensionButton) {
+            dimensionButton.textContent = `X:${this.dimensions.x}, Y:${this.dimensions.y}, Z:${this.dimensions.z}`;
+        }
 
-    // ----------------------------- Open Dimension Window ----------------
+        // Update world edge
+        const worldEdgeSelect = document.getElementById('world_edge');
+        if (worldEdgeSelect) {
+            worldEdgeSelect.value = this.world_edge;
+        }
+
+        // Update neighbors
+        const neighborSides = document.getElementById('neighbor-sides');
+        const neighborEdges = document.getElementById('neighbor-edges');
+        const neighborCorners = document.getElementById('neighbor-corners');
+        if (neighborSides) neighborSides.checked = this.neighbors.sides;
+        if (neighborEdges) neighborEdges.checked = this.neighbors.edges;
+        if (neighborCorners) neighborCorners.checked = this.neighbors.corners;
+
+        // Update fish settings
+        const fishCount = document.getElementById('fish_count');
+        const fishBirth = document.getElementById('fish_birth');
+        if (fishCount) fishCount.value = this.fish.count;
+        if (fishBirth) fishBirth.value = this.fish.birth;
+
+        // Update shark settings
+        const sharkCount = document.getElementById('shark_count');
+        const sharkBirth = document.getElementById('shark_birth');
+        const sharkStarve = document.getElementById('shark_starve');
+        if (sharkCount) sharkCount.value = this.shark.count;
+        if (sharkBirth) sharkBirth.value = this.shark.birth;
+        if (sharkStarve) sharkStarve.value = this.shark.starve;
+    }
+
+    centerWatorBox() {
+        if (this.WatorBox && !this.WatorBox.min) {
+            this.WatorBox.move('0', '0');
+        }
+    }
+
     openDimensionWindow() {
-        const htmlContent = `
-                <form>
-                    <fieldset><legend>X Y Z</legend>
-                    <label style="display: block;">X: <input type="number" id="x_value_input" value="${this.x_dim}" min="0" max="10000"></label>
-                        <input type="range" id="x_slider" min="0" max="10000" step="100" value="${this.x_dim}"><br>
-                        <label style="display: block;">Y: <input type="number" id="y_value_input" value="${this.y_dim}" min="0" max="10000"></label>
-                        <input type="range" id="y_slider" min="0" max="10000" step="100" value="${this.y_dim}"><br>
-                        <label style="display: block;">Z: <input type="number" id="z_value_input" value="${this.z_dim}" min="0" max="10000"></label>
-                        <input type="range" id="z_slider" min="0" max="10000" step="100" value="${this.z_dim}"><br><br>
-                        <label style="display: block;">Alle: <input type="number" id="all_value_input" value="${this.x_dim === this.y_dim && this.y_dim === this.z_dim ? this.x_dim : ''}" min="0" max="10000"></label>
-                        <input type="range" id="all_slider" min="0" max="10000" step="100" value="${this.x_dim}"><br>
-                    </fieldset>
-                    <fieldset><legend>action</legend>
-                        <div style="text-align: center;">
-                            <button type="button" id="cancelButton">Cancel</button>
-                            <button type="button" id="okButton">OK</button>
-                        </div>
-                    </fieldset> 
-                </form>
-            `;
+      const htmlContent = `
+            <form>
+                <fieldset><legend>X Y Z</legend>
+                <label style="display: block;">X: <input type="number" id="x_value_input" value="${this.dimensions.x}" min="1" max="200"></label>
+                    <input type="range" id="x_slider" min="1" max="1000" step="1" value="${this.dimensions.x}"><br>
+                    <label style="display: block;">Y: <input type="number" id="y_value_input" value="${this.dimensions.y}" min="1" max="200"></label>
+                    <input type="range" id="y_slider" min="1" max="1000" step="1" value="${this.dimensions.y}"><br>
+                    <label style="display: block;">Z: <input type="number" id="z_value_input" value="${this.dimensions.z}" min="1" max="200"></label>
+                    <input type="range" id="z_slider" min="1" max="1000" step="1" value="${this.dimensions.z}"><br><br>
+                    <label style="display: block;">Alle: <input type="number" id="all_value_input" value="${this.dimensions.x === this.dimensions.y && this.dimensions.y === this.dimensions.z ? this.dimensions.x : ''}" min="1" max="200"></label>
+                    <input type="range" id="all_slider" min="1" max="1000" step="1" value="${this.dimensions.x}"><br>
+                </fieldset>
+                <fieldset><legend>action</legend>
+                    <div style="text-align: center;">
+                        <button type="button" id="cancelButton">Cancel</button>
+                        <button type="button" id="okButton">OK</button>
+                    </div>
+                </fieldset> 
+            </form>
+        `;
 
-        // Measure the content size to determine window dimensions
         const { width: contentWidth, height: contentHeight } = measureContentSize(htmlContent);
-        const windowWidth = contentWidth + this.widthBuffer;
-        const windowHeight = contentHeight + this.heightBuffer;
+        const windowWidth = contentWidth + 24;
+        const windowHeight = contentHeight + 60;
 
-        // Create the dimension window as a modal
-        this.dimensionWindow = new WinBox({
-            title: "Dimension",
-            x: "center",
-            y: "center",
-            width: windowWidth + 'px',
-            height: windowHeight + 'px',
-            html: htmlContent,
-            class: ["no-max", "no-full", "no-min"],
-            modal: true,
-            oncreate: () => {
-                // Add event listeners for the sliders to update values
-                document.getElementById('x_slider').addEventListener('input', (event) => {
-                    this.x_dim = parseInt(event.target.value);
-                    document.getElementById('x_value_input').value = this.x_dim;
-                    this.updateAllValueDisplay();
-                });
-                document.getElementById('y_slider').addEventListener('input', (event) => {
-                    this.y_dim = parseInt(event.target.value);
-                    document.getElementById('y_value_input').value = this.y_dim;
-                    this.updateAllValueDisplay();
-                });
-                document.getElementById('z_slider').addEventListener('input', (event) => {
-                    this.z_dim = parseInt(event.target.value);
-                    document.getElementById('z_value_input').value = this.z_dim;
-                    this.updateAllValueDisplay();
-                });
-                document.getElementById('all_slider').addEventListener('input', (event) => {
-                    const value = parseInt(event.target.value);
-                    this.updateAllValues(value);
-                    document.getElementById('all_value_input').value = value;
-                });
-
-                // Add event listener for the Cancel button to close the window
-                document.getElementById('cancelButton').addEventListener('click', () => {
-                    this.dimensionWindow.close();
-                    this.dimensionWindow = null;
-                });
-
-                // Add event listener for the OK button to update dimensions
-                document.getElementById('okButton').addEventListener('click', () => {
-                    try {
-                        this.x_dim = parseInt(document.getElementById('x_value_input').value);
-                        this.y_dim = parseInt(document.getElementById('y_value_input').value);
-                        this.z_dim = parseInt(document.getElementById('z_value_input').value);
-
-                        // Validate the input values
-                        if (isNaN(this.x_dim) || isNaN(this.y_dim) || isNaN(this.z_dim)) {
-                            throw new Error("Invalid input: Dimension values must be numeric.");
+        // Create dimension window if it doesn't exist yet
+        if (!this.dimensionWindow) {
+            this.dimensionWindow = new WinBox({
+                title: 'Dimension',
+                x: 'center',
+                y: 'center',
+                width: windowWidth + 'px',
+                height: windowHeight + 'px',
+                html: htmlContent,
+                class: ['no-max', 'no-full', 'no-min'],
+                modal: true,
+                oncreate: () => {
+                    // Add custom close button to the title bar after WinBox is fully created
+                    setTimeout(() => {
+                        if (this.dimensionWindow && this.dimensionWindow.dom) {
+                            const titleBar = this.dimensionWindow.dom.querySelector('.wb-title');
+                            if (titleBar) {
+                                const closeBtn = document.createElement('span');
+                                closeBtn.innerHTML = '×';
+                                closeBtn.className = 'custom-close-btn';
+                                closeBtn.style.cssText = 'position: absolute; right: 10px; top: 0; cursor: pointer; font-size: 20px;';
+                                closeBtn.addEventListener('click', () => {
+                                    this.dimensionWindow.hide();
+                                });
+                                titleBar.appendChild(closeBtn);
+                            }
                         }
+                    }, 100);
+                    
+                    document.getElementById('x_slider').addEventListener('input', (event) => {
+                        this.dimensions.x = parseInt(event.target.value);
+                        document.getElementById('x_value_input').value = this.dimensions.x;
+                        this.updateAllValueDisplay();
+                    });
+                    document.getElementById('y_slider').addEventListener('input', (event) => {
+                        this.dimensions.y = parseInt(event.target.value);
+                        document.getElementById('y_value_input').value = this.dimensions.y;
+                        this.updateAllValueDisplay();
+                    });
+                    document.getElementById('z_slider').addEventListener('input', (event) => {
+                        this.dimensions.z = parseInt(event.target.value);
+                        document.getElementById('z_value_input').value = this.dimensions.z;
+                        this.updateAllValueDisplay();
+                    });
+                    document.getElementById('all_slider').addEventListener('input', (event) => {
+                        const value = parseInt(event.target.value);
+                        this.updateAllValues(value);
+                        document.getElementById('all_value_input').value = value;
+                    });
 
-                        // Ensure minimum value of 1 for each dimension
-                        if (this.x_dim === 0) { this.x_dim = 1; }
-                        if (this.y_dim === 0) { this.y_dim = 1; }
-                        if (this.z_dim === 0) { this.z_dim = 1; }
+                    document.getElementById('cancelButton').addEventListener('click', () => {
+                        this.dimensionWindow.hide();
+                    });
 
-                        // Ensure that the product of dimensions is at least 10
-                        if (this.x_dim * this.y_dim * this.z_dim < 10) {
-                            throw new Error("Zuwenig Dimensionen: Das Produkt von X, Y und Z muss mindestens 10 sein.");
+                    document.getElementById('okButton').addEventListener('click', () => {
+                        try {
+                            this.dimensions.x = parseInt(document.getElementById('x_value_input').value);
+                            this.dimensions.y = parseInt(document.getElementById('y_value_input').value);
+                            this.dimensions.z = parseInt(document.getElementById('z_value_input').value);
+
+                            if (isNaN(this.dimensions.x) || isNaN(this.dimensions.y) || isNaN(this.dimensions.z)) {
+                                throw new Error('Invalid input: Dimension values must be numeric.');
+                            }
+
+                            if (this.dimensions.x === 0) this.dimensions.x = 1;
+                            if (this.dimensions.y === 0) this.dimensions.y = 1;
+                            if (this.dimensions.z === 0) this.dimensions.z = 1;
+
+                            if (this.dimensions.x * this.dimensions.y * this.dimensions.z < 10) {
+                                throw new Error('Zuwenig Dimensionen: Das Produkt von X, Y und Z muss mindestens 10 sein.');
+                            }
+
+                            document.getElementById('dimensionButton').textContent = `X:${this.dimensions.x}, Y:${this.dimensions.y}, Z:${this.dimensions.z}`;
+                            
+                            // Update helper box when dimensions change
+                            if (meine_szene) {
+                                meine_szene.setupHelperBox();
+                            }
+                            
+                            this.dimensionWindow.hide();
+                        } catch (error) {
+                            alert(error.message);
                         }
-
-                        // Update the dimension button with new values
-                        document.getElementById('dimensionButton').textContent = `X:${this.x_dim}, Y:${this.y_dim}, Z:${this.z_dim}`;
-                        this.dimensionWindow.close();
-                        this.dimensionWindow = null;
-
-                        // Entferne das Dimension-Fenster aus der auto-hide Liste
-                        this.liste_der_auto_hide_Winboxen = this.liste_der_auto_hide_Winboxen.filter((wb) => wb !== this.dimensionWindow);
-                    } catch (error) {
-                        alert(error.message);
-                    }
-                });
-            },
-            onclose: () => {
-                // Entferne das Dimension-Fenster aus der auto-hide Liste
-                this.liste_der_auto_hide_Winboxen = this.liste_der_auto_hide_Winboxen.filter((wb) => wb !== this.dimensionWindow);
-                this.dimensionWindow = null;
-            }
-        });
-
-        // Füge das Dimension-Fenster der Liste der auto-hide Winboxen hinzu
-        this.liste_der_auto_hide_Winboxen.push(this.dimensionWindow);
-    }
-
-    // ----------------------------- Automatisch Hide Funktion ----------------
-    automatisch_hide() {
-        // Entferne null-Einträge aus der Liste
-        this.liste_der_auto_hide_Winboxen = this.liste_der_auto_hide_Winboxen.filter((wb) => wb !== null);
-
-        this.liste_der_auto_hide_Winboxen.forEach((winbox) => {
-            if (winbox) { // Überprüfen, ob das WinBox-Objekt nicht null ist
-                if (this.winboxVisible) {
-                    winbox.hide();
-                } else {
-                    winbox.show();
+                    });
                 }
-            }
-        });
-        this.winboxVisible = !this.winboxVisible;
+            });
+        } else {
+            // Update content if window already exists
+            this.dimensionWindow.setTitle('Dimension');
+            this.dimensionWindow.body.innerHTML = htmlContent;
+            
+            // Re-attach event listeners
+            document.getElementById('x_slider').addEventListener('input', (event) => {
+                this.dimensions.x = parseInt(event.target.value);
+                document.getElementById('x_value_input').value = this.dimensions.x;
+                this.updateAllValueDisplay();
+            });
+            document.getElementById('y_slider').addEventListener('input', (event) => {
+                this.dimensions.y = parseInt(event.target.value);
+                document.getElementById('y_value_input').value = this.dimensions.y;
+                this.updateAllValueDisplay();
+            });
+            document.getElementById('z_slider').addEventListener('input', (event) => {
+                this.dimensions.z = parseInt(event.target.value);
+                document.getElementById('z_value_input').value = this.dimensions.z;
+                this.updateAllValueDisplay();
+            });
+            document.getElementById('all_slider').addEventListener('input', (event) => {
+                const value = parseInt(event.target.value);
+                this.updateAllValues(value);
+                document.getElementById('all_value_input').value = value;
+            });
+
+            document.getElementById('cancelButton').addEventListener('click', () => {
+                this.dimensionWindow.hide();
+            });
+
+            document.getElementById('okButton').addEventListener('click', () => {
+                try {
+                    this.dimensions.x = parseInt(document.getElementById('x_value_input').value);
+                    this.dimensions.y = parseInt(document.getElementById('y_value_input').value);
+                    this.dimensions.z = parseInt(document.getElementById('z_value_input').value);
+
+                    if (isNaN(this.dimensions.x) || isNaN(this.dimensions.y) || isNaN(this.dimensions.z)) {
+                        throw new Error('Invalid input: Dimension values must be numeric.');
+                    }
+
+                    if (this.dimensions.x === 0) this.dimensions.x = 1;
+                    if (this.dimensions.y === 0) this.dimensions.y = 1;
+                    if (this.dimensions.z === 0) this.dimensions.z = 1;
+
+                    if (this.dimensions.x * this.dimensions.y * this.dimensions.z < 10) {
+                        throw new Error('Zuwenig Dimensionen: Das Produkt von X, Y und Z muss mindestens 10 sein.');
+                    }
+
+                    document.getElementById('dimensionButton').textContent = `X:${this.dimensions.x}, Y:${this.dimensions.y}, Z:${this.dimensions.z}`;
+                    
+                    // Update helper box when dimensions change
+                    if (meine_szene) {
+                        meine_szene.setupHelperBox();
+                    }
+                    
+                    this.dimensionWindow.hide();
+                } catch (error) {
+                    alert(error.message);
+                }
+            });
+            
+            // Show the window
+            this.dimensionWindow.show();
+        }
     }
 
-    // ----------------------------- Update All Values ----------------
     updateAllValues(value) {
-        // Update all sliders and input fields with the given value
-        this.x_dim = value;
-        this.y_dim = value;
-        this.z_dim = value;
+        this.dimensions.x = value;
+        this.dimensions.y = value;
+        this.dimensions.z = value;
         document.getElementById('x_slider').value = value;
         document.getElementById('x_value_input').value = value;
         document.getElementById('y_slider').value = value;
@@ -274,18 +556,45 @@ class classSimulation_ui {
         document.getElementById('z_value_input').value = value;
     }
 
-    // ----------------------------- Update All Value Display ----------------
     updateAllValueDisplay() {
-        // Update the display for the "Alle" value input based on x, y, z values
-        const x = this.x_dim;
-        const y = this.y_dim;
-        const z = this.z_dim;
+        const x = this.dimensions.x;
+        const y = this.dimensions.y;
+        const z = this.dimensions.z;
         const allValueDisplay = document.getElementById('all_value_input');
         if (x === y && y === z) {
             allValueDisplay.value = x;
         } else {
-            allValueDisplay.value = 0;
+            allValueDisplay.value = '';
+        }
+    }
+
+    initSimulation() {
+        const config = {
+            dimensions: this.dimensions,
+            neighbors: this.neighbors,
+            world_edge: this.world_edge,
+            fish: this.fish,
+            shark: this.shark
+        };
+
+        if (!window.SIMULATION) {
+            window.SIMULATION = new classSimulation(config);
+            meine_szene.registerUpdateObject(window.SIMULATION);
+        } else {
+            window.SIMULATION.removeFromScene();
+            window.SIMULATION = new classSimulation(config);
+            meine_szene.registerUpdateObject(window.SIMULATION);
+        }
+    }
+
+    MENU_Klick() {
+        if (this.WatorBox) {
+            if (this.WatorBox.hidden) {
+                this.WatorBox.show();
+                this.WatorBox.focus();
+            } else {
+                this.WatorBox.hide();
+            }
         }
     }
 }
-

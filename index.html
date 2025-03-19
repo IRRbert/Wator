@@ -4,48 +4,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WAROR Simulation, V.5, Versuche. 2</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/winbox@0.2.82/dist/winbox.bundle.min.js"></script>
-    <!-- Winbox Bibliothek -->
+    <title>WATOR Simulation, V.5, Versuche. 2</title>
 
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="MENU_BUTTON.css">
-
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
-    <script src="winbox_functions.js"></script>
-    <script src="x_irr_funktionen.js"></script>
-
-    <script src="classSzene.js"></script>
-    <script src="classSimulation_ui.js"></script>
-
 
 </head>
 
 <body class="no-select">
+<script src="https://cdn.jsdelivr.net/npm/winbox@0.2.82/dist/winbox.bundle.min.js"></script>
 
-    <button class="MENU_BUTTON" onclick="SimulationEinstellungen.automatisch_hide()">=</button>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-    TODO: Den Button mit eigenem Objekt zum hiden der Fenster, oder eine Winbox-Funtion bauen!!!
+<script src="winbox_functions.js"></script>
+<script src="x_irr_funktionen.js"></script>
 
-
-
-
+<script src="classMENU.js"></script>
+<script src="classWesen.js"></script>
+<script src="classWesen-Fisch.js"></script>
+<script src="classWesen-Hai.js"></script>
+<script src="classSimulation_ui.js"></script>
+<script src="classSimulation.js"></script>
+<script src="classSzene-Wiese.js"></script>
+<script src="classStatistik.js"></script>
 <script>
+    // Create SimulationEinstellungen first
+    window.SimulationEinstellungen = new classSimulation_ui();
+    // Then create scene which will use SimulationEinstellungen
+    window.meine_szene = new classSzene();
+    // Create statistics instance
+    window.STATISTIK = new classStatistik();
     
-    meine_szene = new classSzene();
-    meine_szene.animate();
-    
-
-    SimulationEinstellungen = new classSimulation_ui(); // Globalen Zugriff auf otto sicherstellen
-
-
+    // Auto-start simulation with default settings
+    window.addEventListener('load', () => {
+        const config = {
+            dimensions: SimulationEinstellungen.dimensions,
+            neighbors: SimulationEinstellungen.neighbors,
+            world_edge: SimulationEinstellungen.world_edge,
+            fish: SimulationEinstellungen.fish,
+            shark: SimulationEinstellungen.shark
+        };
+        
+        window.SIMULATION = new classSimulation(config);
+        
+        // Create Player - animation will start automatically
+        window.PLAYER = new classPlayer();
+        
+        // Set simulation to pause mode after initialization
+        window.PLAYER.isPlaying = false;
+        const playPauseButton = document.getElementById('playPauseButton');
+        if (playPauseButton) {
+            playPauseButton.textContent = '▶️ Play';
+        }
+        const stepButton = document.getElementById('stepButton');
+        if (stepButton) {
+            stepButton.disabled = false;
+        }
+    });
 </script>
-
 <script src="classSprache.js"></script>
+<script src="classPlayer.js"></script>
 
 </body>
 </html>
-

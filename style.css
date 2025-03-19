@@ -22,8 +22,31 @@ select {
     font-size: 12px;
 }
 
+/* Player styles */
+.slider-description {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+}
 
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
+/* Custom close button */
+.custom-close-btn {
+    position: absolute;
+    right: 10px;
+    top: 0;
+    cursor: pointer;
+    font-size: 20px;
+    color: #333;
+}
+
+.custom-close-btn:hover {
+    color: #f00;
+}
 
 /*  ---- Meine eigenen Klassen  ----- */
 .invertiert {
@@ -38,4 +61,3 @@ select {
     user-select: none;
     /* Standard */
 }
-

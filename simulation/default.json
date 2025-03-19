@@ -1,0 +1,22 @@
+{
+  "dimensions": {
+    "x": 20,
+    "y": 20,
+    "z": 20
+  },
+  "world_edge": "verbunden",
+  "neighbors": {
+    "sides": true,
+    "edges": false,
+    "corners": false
+  },
+  "fish": {
+    "count": 1000,
+    "birth": 3
+  },
+  "shark": {
+    "count": 100,
+    "birth": 3,
+    "starve": 2
+  }
+}
